@@ -29,7 +29,7 @@ SOUTH_FLORIDA = { miami_beach: '25.770,-80.130', dania_beach: '26.053,-80.111', 
               boynton_beach: '26.529,-80.045', lantana: '26.584,-80.036', lake_worth: '26.613,-80.035',
               palm_beach: '26.715,-80.032', juno_beach: '26.894,-80.055' }
 
-hash = { q: '26.460,-80.0566', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: 'd276dc59474d4f4196634625170903'}
+hash = { q: '26.460,-80.0566', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
 
 def build_request(req_attr)
   'https://api.worldweatheronline.com/premium/v1/marine.ashx?' + append_search_parameters(req_attr)
@@ -51,8 +51,6 @@ end
 # response = HTTParty.get(build_request(hash))
 # wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swellHeight_ft']
 
-post_me = HTTParty.post('https://api.pushover.net/1/messages.json', body: { token: 'a31eit4aavmqdzuqb52q9rzcra76ii', user: 'uig5r341c9gjp54evy28dp63adr397',
-                                                                                message: "wave size in 3 hours #{wave_height_3_hours_from_now}"})
 
 
 class DailyWeather
@@ -103,4 +101,4 @@ end
 
 json_response = HTTParty.get(build_request(hash))
 
-one_week = day_objects(json_response)
+  one_week = day_objects(json_response)
