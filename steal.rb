@@ -1,6 +1,11 @@
 require 'httparty'
 
 
+SOUTH_FLORIDA = { miami_beach: '25.770,-80.130', dania_beach: '26.053,-80.111', pompano: '26.226,-80.089',
+              deerfield_beach: '26.316, -80.074', boca_raton: '26.386,-80.065', delray_beach: '26.458,-80.057',
+              boynton_beach: '26.529,-80.045', lantana: '26.584,-80.036', lake_worth: '26.613,-80.035',
+              palm_beach: '26.715,-80.032', juno_beach: '26.894,-80.055' }
+
 hash = { q: '26.460,-80.0566', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: 'd276dc59474d4f4196634625170903'}
 
 def build_request(req_attr)
