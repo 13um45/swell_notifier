@@ -1,5 +1,28 @@
 require 'httparty'
 
+##
+# weather element: returns an array for each day, total of 7 days
+# includes:
+# date, maxtempC, maxtempF, mintempC, mintempC, astronomy, hourly, tides
+# day 1 = ['data']['weather'][0], day 2 ['data']['weather'][1], day 3 etc.
+# response['data']['weather']
+
+##
+# hourly element: returns an array for each hour increment, i default this to 3 hour increments
+# includes:
+# time, tempC, tempF, windspeedMiles, windspeedKmph, winddirDegree, winddirection or winddir16Point, weatherCode,
+# weatherDesc, weatherIconUrl, precipMM, humidity, visibility, pressure, cloudcover, sigHeight_m, swellHeight_m,
+# swell_Height_ft, swellDir, swellDir16Point, swellPeriod_secs, waterTemp_C, waterTemp_F
+# response['data']['weather'][0]['hourly']
+
+
+
+##
+# element: returns an array of 4 tide objects low, high, low, high
+# includes:
+# tideTime, tideHeight_mt, tide_type, tideDateTime
+# response['data']['weather'][0]['tides'][0]['tide_data']
+
 
 SOUTH_FLORIDA = { miami_beach: '25.770,-80.130', dania_beach: '26.053,-80.111', pompano: '26.226,-80.089',
               deerfield_beach: '26.316, -80.074', boca_raton: '26.386,-80.065', delray_beach: '26.458,-80.057',
@@ -25,8 +48,8 @@ def append_search_parameters(params)
 end
 
 
-response = HTTParty.get(build_request(hash))
-wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swellHeight_ft']
+# response = HTTParty.get(build_request(hash))
+# wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swellHeight_ft']
 
 post_me = HTTParty.post('https://api.pushover.net/1/messages.json', body: { token: 'a31eit4aavmqdzuqb52q9rzcra76ii', user: 'uig5r341c9gjp54evy28dp63adr397',
                                                                                 message: "wave size in 3 hours #{wave_height_3_hours_from_now}"})
@@ -40,7 +63,7 @@ class DailyWeather
     @max_temp = daily_wx_attr['maxtempF']
     @min_temp = daily_wx_attr['mintempF']
     @astronomy = daily_wx_attr['astronomy']
-    @hourly = daily_wx_attr['hourly']
+    @hourly = daily_wx_attr[:hourly_forecast]
     @tides = daily_wx_attr['tides']
   end
 end
@@ -57,32 +80,27 @@ class HourlyForecast
     @weather_desc = hourly_fx_attr['weatherDesc']
     @cloudcover = hourly_fx_attr['cloudcover']
     @sig_height_m = hourly_fx_attr['sigHeight_m']
-    @swell_height_ft = hourly_fx_attr['swell_Height_ft']
+    @swell_height_ft = hourly_fx_attr['swellHeight_ft']
     @swell_dir = hourly_fx_attr['swellDir16Point']
     @swell_period = hourly_fx_attr['swellPeriod_secs']
     @water_temp = hourly_fx_attr['waterTemp_F']
   end
 end
 
-##
-# weather element: returns an array for each day, total of 7 days
-# includes:
-# date, maxtempC, maxtempF, mintempC, mintempC, astronomy, hourly, tides
-# day 1 = ['data']['weather'][0], day 2 ['data']['weather'][1], day 3 etc.
-response['data']['weather']
 
-##
-# hourly element: returns an array for each hour increment, i default this to 3 hour increments
-# includes:
-# time, tempC, tempF, windspeedMiles, windspeedKmph, winddirDegree, winddirection or winddir16Point, weatherCode,
-# weatherDesc, weatherIconUrl, precipMM, humidity, visibility, pressure, cloudcover, sigHeight_m, swellHeight_m,
-# swell_Height_ft, swellDir, swellDir16Point, swellPeriod_secs, waterTemp_C, waterTemp_F
-response['data']['weather'][0]['hourly']
+def day_objects(response)
+  day_objects = []
+  response['data']['weather'].each do |day|
+    hourly_arr = []
+    day['hourly'].each do |hour_increment|
+      hourly_arr << HourlyForecast.new(hour_increment)
+    end
+    day[:hourly_forecast] = hourly_arr
+    day_objects << DailyWeather.new(day)
+  end
+  day_objects
+end
 
+json_response = HTTParty.get(build_request(hash))
 
-
-##
-# element: returns an array of 4 tide objects low, high, low, high
-# includes:
-# tideTime, tideHeight_mt, tide_type, tideDateTime
-response['data']['weather'][0]['tides'][0]['tide_data']
+one_week = day_objects(json_response)
