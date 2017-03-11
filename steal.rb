@@ -26,8 +26,41 @@ wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swel
 post_me = HTTParty.post('https://api.pushover.net/1/messages.json', body: { token: 'a31eit4aavmqdzuqb52q9rzcra76ii', user: 'uig5r341c9gjp54evy28dp63adr397',
                                                                                 message: "wave size in 3 hours #{wave_height_3_hours_from_now}"})
 
+
+class DailyWeather
+  attr_accessor :date, :max_temp, :min_temp, :astronomy, :hourly, :tides
+
+  def initialize(daily_wx_attr)
+    @date = daily_wx_attr['date']
+    @max_temp = daily_wx_attr['maxtempF']
+    @min_temp = daily_wx_attr['mintempF']
+    @astronomy = daily_wx_attr['astronomy']
+    @hourly = daily_wx_attr['hourly']
+    @tides = daily_wx_attr['tides']
+  end
+end
+
+class HourlyForecast
+  attr_accessor :time, :temp, :windspeed_miles, :wind_direction, :weather_desc, :cloudcover, :sig_height_m, :swell_height_ft,
+                :swell_dir, :swell_period, :water_temp
+
+  def initialize(hourly_fx_attr)
+    @time = hourly_fx_attr['time']
+    @temp = hourly_fx_attr['tempF']
+    @windspeed_miles = hourly_fx_attr['windspeedMiles']
+    @wind_direction = hourly_fx_attr['winddir16Point']
+    @weather_desc = hourly_fx_attr['weatherDesc']
+    @cloudcover = hourly_fx_attr['cloudcover']
+    @sig_height_m = hourly_fx_attr['sigHeight_m']
+    @swell_height_ft = hourly_fx_attr['swell_Height_ft']
+    @swell_dir = hourly_fx_attr['swellDir16Point']
+    @swell_period = hourly_fx_attr['swellPeriod_secs']
+    @water_temp = hourly_fx_attr['waterTemp_F']
+  end
+end
+
 ##
-# weather elemement: returns an array for each day, total of 7 days
+# weather element: returns an array for each day, total of 7 days
 # includes:
 # date, maxtempC, maxtempF, mintempC, mintempC, astronomy, hourly, tides
 # day 1 = ['data']['weather'][0], day 2 ['data']['weather'][1], day 3 etc.
@@ -44,7 +77,7 @@ response['data']['weather'][0]['hourly']
 
 
 ##
-# tides element: returns an array of 4 tide objects low, high, low, high
+# element: returns an array of 4 tide objects low, high, low, high
 # includes:
 # tideTime, tideHeight_mt, tide_type, tideDateTime
 response['data']['weather'][0]['tides'][0]['tide_data']
