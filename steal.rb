@@ -23,11 +23,19 @@ require 'httparty'
 # tideTime, tideHeight_mt, tide_type, tideDateTime
 # response['data']['weather'][0]['tides'][0]['tide_data']
 
+SHORE_DEGREE_DEFAULTS =  { south_fl: 6 }
 
-SOUTH_FLORIDA = { miami_beach: '25.770,-80.130', dania_beach: '26.053,-80.111', pompano: '26.226,-80.089',
-              deerfield_beach: '26.316, -80.074', boca_raton: '26.386,-80.065', delray_beach: '26.458,-80.057',
-              boynton_beach: '26.529,-80.045', lantana: '26.584,-80.036', lake_worth: '26.613,-80.035',
-              palm_beach: '26.715,-80.032', juno_beach: '26.894,-80.055' }
+SOUTH_FLORIDA = { miami_beach: { lat_long: '25.770,-80.130', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  dania_beach: {lat_long: '26.053,-80.111', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  pompano: { lat_long: '26.226,-80.089', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  deerfield_beach: { lat_long: '26.316, -80.074', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  boca_raton: { lat_long: '26.386,-80.065', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
+                  delray_beach: { lat_long: '26.458,-80.057', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  boynton_beach: { lat_long: '26.529,-80.045', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
+                  lantana: { lat_long: '26.584,-80.036', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
+                  lake_worth: { lat_long: '26.613,-80.035', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
+                  palm_beach: { lat_long: '26.715,-80.032', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
+                  juno_beach: { lat_long: '26.894,-80.055', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]} }
 
 hash = { q: '26.460,-80.0566', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
 
@@ -67,24 +75,98 @@ class DailyWeather
 end
 
 class HourlyForecast
-  attr_accessor :time, :temp, :windspeed_miles, :wind_direction, :weather_desc, :cloudcover, :sig_height_m, :swell_height_ft,
-                :swell_dir, :swell_period, :water_temp
+  attr_accessor :time, :temp, :wind_speed, :wind_direction, :weather_desc, :sig_height_m, :swell_height_ft,
+                :swell_dir, :swell_period, :water_temp, :rating
 
   def initialize(hourly_fx_attr)
     @time = hourly_fx_attr['time']
     @temp = hourly_fx_attr['tempF']
-    @windspeed_miles = hourly_fx_attr['windspeedMiles']
+    @wind_speed = hourly_fx_attr['windspeedMiles']
     @wind_direction = hourly_fx_attr['winddir16Point']
     @weather_desc = hourly_fx_attr['weatherDesc']
-    @cloudcover = hourly_fx_attr['cloudcover']
     @sig_height_m = hourly_fx_attr['sigHeight_m']
     @swell_height_ft = hourly_fx_attr['swellHeight_ft']
     @swell_dir = hourly_fx_attr['swellDir16Point']
     @swell_period = hourly_fx_attr['swellPeriod_secs']
     @water_temp = hourly_fx_attr['waterTemp_F']
+    @rating ||= 0
   end
 end
 
+##
+# N = 0
+# E = 90
+# S = 180
+# W = 270
+
+# - offshore = 276 + || - 33.75
+# - onshore = 96 + || - 33.75
+# - sideshoreN = 6 + || - 33.75
+# - sideshoreS = 186 + || - 33.75
+
+
+def normalize_degrees(degree)
+  degree + 33.75
+end
+
+def wind_direction_relative(wind_direction, shore_degree)
+  if wind_direction >= shore_degree
+    normalize_degrees(wind_direction )
+  elsif wind_direction < shore_degree
+    normalize_degrees(wind_direction) + 360
+  end
+end
+
+def sideshore_3(degree)
+  if degree < 33.75
+    start_of_range = degree + 360
+    end_of_range = start_of_range + (33.75 - degree)
+    (start_of_range..end_of_range)
+  else
+    end_of_range = 360 + degree + 33.75
+    (degree..end_of_range)
+  end
+end
+
+def wind_direction_range(degree, small_range_increment)
+  degree_offset = small_range_increment ? 11.25 : 33.75
+  start_of_range = degree - degree_offset
+  end_of_range = degree + degree_offset
+  (start_of_range..end_of_range)
+end
+
+def relative_wind_direction(shore_degree, wind_direction)
+  sideshore_1 = wind_direction_range(normalize_degrees(0 + shore_degree), false)
+  sideshore_onshore_1 = wind_direction_range(normalize_degrees(45 + shore_degree), true)
+  onshore = wind_direction_range(normalize_degrees(90 + shore_degree), false)
+  sideshore_onshore_2 = wind_direction_range(normalize_degrees(135 + shore_degree), true)
+  sideshore_2 = wind_direction_range(normalize_degrees(180 + shore_degree), false)
+  sideshore_offshore_1 = wind_direction_range(normalize_degrees(225 + shore_degree), true)
+  offshore = wind_direction_range(normalize_degrees(270 + shore_degree), false)
+  sideshore_offshore_2 = wind_direction_range(normalize_degrees(315 + shore_degree), true)
+
+ w_r = wind_direction_relative(wind_direction, shore_degree)
+
+  if sideshore_1.include?(w_r)
+    'sideshore'
+  elsif sideshore_onshore_1.include?(w_r)
+    'sideshore/onshore'
+  elsif onshore.include?(w_r)
+    'onshore'
+  elsif sideshore_onshore_2.include?(w_r)
+    'sideshore/onshore'
+  elsif sideshore_2.include?(w_r)
+    'sideshore'
+  elsif sideshore_offshore_1.include?(w_r)
+    'sideshore/offshore'
+  elsif offshore.include?(w_r)
+    'offshore'
+  elsif sideshore_offshore_2.include?(w_r)
+    'sideshore/offshore'
+  elsif sideshore_3(shore_degree).include?(w_r)
+    'sideshore'
+  end
+end
 
 def day_objects(response)
   day_objects = []
