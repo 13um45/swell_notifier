@@ -37,7 +37,7 @@ SOUTH_FLORIDA = { miami_beach: { lat_long: '25.770,-80.130', shore_degree: SHORE
                   palm_beach: { lat_long: '26.715,-80.032', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
                   juno_beach: { lat_long: '26.894,-80.055', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]} }
 
-hash = { q: '26.460,-80.0566', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+hash = { q: '21.667107,-158.05301', fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
 
 def build_request(req_attr)
   'https://api.worldweatheronline.com/premium/v1/marine.ashx?' + append_search_parameters(req_attr)
@@ -82,11 +82,11 @@ class HourlyForecast
     @time = hourly_fx_attr['time']
     @temp = hourly_fx_attr['tempF']
     @wind_speed = hourly_fx_attr['windspeedMiles']
-    @wind_direction = hourly_fx_attr['winddir16Point']
+    @wind_direction = hourly_fx_attr['winddirDegree']
     @weather_desc = hourly_fx_attr['weatherDesc']
     @sig_height_m = hourly_fx_attr['sigHeight_m']
     @swell_height_ft = hourly_fx_attr['swellHeight_ft']
-    @swell_dir = hourly_fx_attr['swellDir16Point']
+    @swell_dir = hourly_fx_attr['swellDir']
     @swell_period = hourly_fx_attr['swellPeriod_secs']
     @water_temp = hourly_fx_attr['waterTemp_F']
     @rating ||= 0
@@ -167,6 +167,63 @@ def relative_wind_direction(shore_degree, wind_direction)
     'sideshore'
   end
 end
+
+
+def rating(wind_direction, wind_speed, swell_period, swell_size)
+  wind_score(wind_direction, wind_speed) +
+      swell_period_score(swell_period) +
+      swell_size_score(swell_size, swell_period)
+end
+
+def swell_period_score(swell_period)
+  if swell_period >= 10
+    20
+  else
+    swell_period * 2
+  end
+end
+
+def swell_size_score(swell_size, swell_period)
+  if swell_size >= 6
+    60
+  elsif (2..5).include?(swell_size)
+    swell_size * swell_period
+  else
+    swell_size * 10
+  end
+end
+
+
+def wind_score(wind_direction, wind_speed)
+  case wind_direction
+    when 'offshore'
+      20
+    when 'sideshore/offshore'
+      20 - wind_speed
+    when 'sideshore'
+      10 - wind_speed
+    when 'sideshore/onshore'
+      5 - wind_speed
+    when 'onshore'
+      0 - wind_speed
+    else
+      0
+  end
+end
+
+def best_hourly(week_object)
+  day_hash = {}
+  week_object.each do |day|
+    hash = {}
+    day.hourly.each do |hour|
+      w_d = relative_wind_direction(223, hour.wind_direction.to_i)
+      hash[hour.time] = rating(w_d, hour.wind_speed.to_i, hour.swell_period.to_f, hour.swell_height_ft.to_f)
+    end
+    day_hash[day.date] = hash
+  end
+  day_hash
+end
+
 
 def day_objects(response)
   day_objects = []
