@@ -55,10 +55,45 @@ def append_search_parameters(params)
   string
 end
 
+class Request
+  def initialize(req_attr)
+    @location = req_attr[:location]
+    @request = build_request(req_attr[:search_request])
+  end
 
-# response = HTTParty.get(build_request(hash))
-# wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swellHeight_ft']
+  def forecast
+    response = HTTParty.get(@request)
+    day_objects = []
+    response['data']['weather'].each do |day|
+      hourly_arr = []
+      day['hourly'].each do |hour_hash|
+        hourly_arr << HourlyForecast.new(hour_hash)
+      end
+      day[:hourly_forecast] = hourly_arr
+      day_objects << DailyWeather.new(day)
+    end
+    @location[:week] = day_objects
+    location = Location.new(@location)
+    location
+  end
 
+  private
+  def build_request(req_attr)
+    'https://api.worldweatheronline.com/premium/v1/marine.ashx?' + append_search_parameters(req_attr)
+  end
+
+
+
+  def append_search_parameters(params)
+    string = ''
+    params.each do |key, value|
+      string += key.to_s + '=' + "#{value}" + '&' unless value.nil?
+    end
+    string = string.gsub(' ', '+')
+    string[-1] = ''
+    string
+  end
+end
 
 
 class Location
