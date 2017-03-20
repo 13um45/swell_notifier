@@ -23,21 +23,21 @@ require 'httparty'
 # tideTime, tideHeight_mt, tide_type, tideDateTime
 # response['data']['weather'][0]['tides'][0]['tide_data']
 
+MESSAGES = { today: 'Surf today', fifth: 'Surf 5 days from today', week: 'Surf in a week' }
+
 SHORE_DEGREE_DEFAULTS =  { south_fl: 6 }
 
-SOUTH_FLORIDA = { miami_beach: { lat_long: '25.770,-80.130', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  dania_beach: {lat_long: '26.053,-80.111', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  pompano: { lat_long: '26.226,-80.089', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  deerfield_beach: { lat_long: '26.316, -80.074', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  boca_raton: { lat_long: '26.386,-80.065', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
-                  delray_beach: { lat_long: '26.458,-80.057', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  boynton_beach: { lat_long: '26.529,-80.045', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl] },
-                  lantana: { lat_long: '26.584,-80.036', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
-                  lake_worth: { lat_long: '26.613,-80.035', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
-                  palm_beach: { lat_long: '26.715,-80.032', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]},
-                  juno_beach: { lat_long: '26.894,-80.055', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl]} }
-
-hash = { q: SOUTH_FLORIDA[:delray_beach][:lat_long], fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+SOUTH_FLORIDA = { miami_beach: { lat_long: '25.770,-80.130', shore_degree: 7, name: 'Miami Beach'  },
+                  dania_beach: {lat_long: '26.053,-80.111', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl], name: 'Dania Beach'  },
+                  pompano: { lat_long: '26.226,-80.089', shore_degree: 14, name: 'Pompano Beach'  },
+                  deerfield_beach: { lat_long: '26.316, -80.074', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl], name: 'Deerfield Beach'  },
+                  boca_raton: { lat_long: '26.386,-80.065', shore_degree: 2, name: 'Boca Raton' },
+                  delray_beach: { lat_long: '26.458,-80.057', shore_degree: SHORE_DEGREE_DEFAULTS[:south_fl], name: 'Delray Beach' },
+                  boynton_beach: { lat_long: '26.529,-80.045', shore_degree: 12, name: 'Boynton Beach'  },
+                  lantana: { lat_long: '26.584,-80.036', shore_degree: 2, name: 'Lantana'  },
+                  lake_worth: { lat_long: '26.613,-80.035', shore_degree: 0, name: 'Lake Worth'  },
+                  palm_beach: { lat_long: '26.715,-80.032', shore_degree: 354, name: 'West Palm Beach' },
+                  juno_beach: { lat_long: '26.894,-80.055', shore_degree: 346, name: 'Juno Beach' } }
 
 def build_request(req_attr)
   'https://api.worldweatheronline.com/premium/v1/marine.ashx?' + append_search_parameters(req_attr)
@@ -59,6 +59,24 @@ end
 # response = HTTParty.get(build_request(hash))
 # wave_height_3_hours_from_now = response['data']['weather'][0]['hourly'][0]['swellHeight_ft']
 
+
+
+class Location
+  attr_accessor :name, :lat_long, :shore_degree, :week, :best_days
+
+  def initialize(location_attr)
+    @name = location_attr[:name]
+    @lat_long = location_attr[:lat_long]
+    @shore_degree = location_attr[:shore_degree]
+    @week = location_attr[:week]
+    @best_days = return_best_day
+  end
+
+  private
+  def return_best_day
+    @week.select { |day| day.best_hour.rating > 60 }
+  end
+end
 
 
 class DailyWeather
