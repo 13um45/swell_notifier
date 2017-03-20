@@ -273,21 +273,64 @@ end
 # - sideshoreN = 6 + || - 33.75
 # - sideshoreS = 186 + || - 33.75
 
-
-def day_objects(response)
-  day_objects = []
-  response['data']['weather'].each do |day|
-    hourly_arr = []
-    day['hourly'].each do |hour_increment|
-      hourly_arr << HourlyForecast.new(hour_increment)
-    end
-    day[:hourly_forecast] = hourly_arr
-    day_objects << DailyWeather.new(day)
+def notify_me_for_today(location_hash)
+  hash = {q: location_hash[:lat_long], fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+  request_hash = {search_request: hash, location: location_hash}
+  request = Request.new(request_hash)
+  location = request.forecast
+  day_arr = location.best_days.select do |day|
+    today = Date.today + 1
+    day.date == date_parser(today)
   end
-  day_objects
+  post_for_notification(location, day_arr.first, MESSAGES[:today]) unless day_arr.first.nil?
 end
 
-json_response = HTTParty.get(build_request(hash))
+def notify_me_for_fifth_day(location_hash)
+  hash = {q: location_hash[:lat_long], fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+  request_hash = {search_request: hash, location: location_hash}
+  request = Request.new(request_hash)
+  location = request.forecast
+  day_arr = location.best_days.select do |day|
+    five_days_from_today = Date.today + 5
+    day.date == date_parser(five_days_from_today)
+  end
+  post_for_notification(location, day_arr.first, MESSAGES[:fifth]) unless day_arr.first.nil?
+end
 
-one_week = day_objects(json_response)
-best_hourly(one_week)
+def notify_me_a_week_from_now(location_hash)
+  hash = {q: location_hash[:lat_long], fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+  request_hash = {search_request: hash, location: location_hash}
+  request = Request.new(request_hash)
+  location = request.forecast
+  day_arr = location.best_days.select do |day|
+    week_from_now = Date.today + 7
+    day.date == date_parser(week_from_now)
+  end
+  post_for_notification(location, day_arr.first, MESSAGES[:week]) unless day_arr.first.nil?
+end
+
+def date_parser(date_object)
+  date_object.strftime('%Y-%m-%d')
+end
+
+
+# def blar
+#   location_arr = []
+#   SOUTH_FLORIDA.each do |key, location|
+#     hash = {q: location[:lat_long], fx: 'yes', format: 'json', tp: '3', tide: 'yes', key: ENV['WWO_TOKEN']}
+#     request_hash = {search_request: hash, location: location}
+#     request = Request.new(request_hash)
+#     location_arr << request.forecast
+#   end
+#   location_arr
+# end
+
+def post_for_notification(location, best_day, message)
+  full_message = message + ", it's gonna be about #{best_day.best_hour.swell_height_ft}ft in #{location.name}. Winds gonna be #{best_day.best_hour.wind_speed} and #{best_day.best_hour.relative_wind_direction}mph"
+  HTTParty.post('https://api.pushover.net/1/messages.json', body: { token: ENV['PUSHOVER_TOKEN'], user: ENV['PUSHOVER_USER'],
+                                                                              message: full_message })
+end
+
+notify_me_for_today(SOUTH_FLORIDA[:delray_beach])
+notify_me_for_fifth_day(SOUTH_FLORIDA[:delray_beach])
+notify_me_a_week_from_now(SOUTH_FLORIDA[:delray_beach])
